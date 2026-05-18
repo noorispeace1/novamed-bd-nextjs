@@ -6,18 +6,30 @@ import { signUp } from '@/app/lib/auth-client';
 import { toast } from 'react-hot-toast'; 
 import { useRouter } from 'next/navigation';
 
+
 const RegisterPage = () => {
   const [loading, setLoading] = useState(false);
-    const router = useRouter();
+  const router = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (loading) return;
 
-    setLoading(true);
-    const loadingToast = toast.loading("Creating account...");
     const formData = new FormData(e.currentTarget);
     const { name, email, photoUrl, password } = Object.fromEntries(formData.entries());
+
+ 
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
+    const isValidLength = password.length >= 6;
+
+    if (!isValidLength || !hasUppercase || !hasLowercase) {
+      toast.error("Password must be at least 6 characters long, contain 1 uppercase letter, and 1 lowercase letter.");
+      return;
+    }
+
+    setLoading(true);
+    const loadingToast = toast.loading("Creating account...");
 
     try {
       const { data, error } = await signUp.email({
@@ -25,9 +37,8 @@ const RegisterPage = () => {
         password,
         name,
         image: photoUrl, 
-       
       });
-router.push("/")
+
       toast.dismiss(loadingToast);
 
       if (error) {
@@ -37,6 +48,8 @@ router.push("/")
       }
 
       toast.success("Registration Successful!");
+      router.push("/");
+      
     } catch (err) {
       toast.dismiss(loadingToast);
       console.error("Submit Error:", err);
@@ -129,6 +142,10 @@ router.push("/")
               placeholder="••••••••"
               className="block w-full h-11 px-4 text-sm text-slate-900 bg-white border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-all"
             />
+         
+            <p className="text-[11px] text-slate-500 mt-1">
+              Must contain at least 1 uppercase, 1 lowercase letter, and minimum 6 characters.
+            </p>
           </div>
 
           <p className="text-sm text-slate-600 pt-1">

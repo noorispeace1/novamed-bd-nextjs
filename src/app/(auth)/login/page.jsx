@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation'; 
 import { toast } from 'react-hot-toast'; // or 'sonner' based on your project setups
+import { authClient } from '@/app/lib/auth-client';
 
 const LoginPage = () => {
   const router = useRouter();
@@ -25,9 +26,9 @@ const LoginPage = () => {
 
     try {
       // Replace this mock with your actual authentication logic (e.g., NextAuth, Supabase, Better-Auth)
-      // const { data, error } = await auth.signIn({ email, password });
+      const { data, error } = await authClient.signIn.email({ email, password });
       
-      const error = null; // Mocking response error state
+      // const error = null; // Mocking response error state
 
       toast.dismiss(loadingToast);
 

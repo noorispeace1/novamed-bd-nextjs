@@ -1,21 +1,46 @@
-"use client"
+"use client";
+
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import React, { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import React, { useState, useEffect, useRef } from 'react';
+import { authClient } from '../lib/auth-client';
 
 const Navbar = () => {
-    const [isOpen, setIsOpen] = useState(false);
+    const [isOpen, setIsOpen] = useState(false); // মোবাইল মেনুর জন্য
+    const [isProfileOpen, setIsProfileOpen] = useState(false); // প্রোফাইল ড্রপডাউনের জন্য
     const pathname = usePathname();
+    const router = useRouter();
+    const dropdownRef = useRef(null);
 
-    const [user, setUser] = useState({
-        name: "John Doe",
-        profilePic: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80"
-    });
+    const { data: session, isPending } = authClient.useSession();
+    const user = session?.user;
 
-    const handleLogout = () => {
-        setUser(null);
-        setIsOpen(false);
+    // ড্রপডাউনের বাইরে ক্লিক করলে যেন ড্রপডাউনটি বন্ধ হয়ে যায়
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsProfileOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const handleSignOut = async () => {
+        try {
+            await authClient.signOut({
+                fetchOptions: {
+                    onSuccess: () => {
+                        setIsOpen(false);
+                        setIsProfileOpen(false);
+                        router.push("/"); 
+                    },
+                },
+            });
+        } catch (error) {
+            console.error("Sign out failed:", error);
+        }
     };
 
     const navLinks = [
@@ -24,15 +49,18 @@ const Navbar = () => {
         { name: 'Dashboard', href: '/dashboard' },
     ];
 
+    if (isPending) {
+        return <nav className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-teal-100/60 h-20 w-full z-50" />;
+    }
+
     return (
-        <nav className="bg-gradient-to-r from-teal-50 via-teal-50/30 to-emerald-50/50 border-b border-teal-100/80 shadow-sm relative z-50">
+        <nav className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-teal-100/60 shadow-sm relative z-50 transition-all duration-300">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-20">
                     
                     {/* Logo Section */}
                     <Link href="/" className="flex items-center space-x-3 cursor-pointer group">
-                        <div className="bg-teal-600/10 p-2 rounded-xl shadow-sm group-hover:scale-105 transition-transform">
-                            {/* ফিক্সড ইমেজ পাথ এবং অবজেক্ট ফিট */}
+                        <div className="bg-gradient-to-br from-teal-500/10 to-emerald-500/10 p-2 rounded-xl shadow-inner group-hover:scale-105 group-hover:rotate-3 transition-all duration-300">
                             <Image 
                                 src="/logo.png" 
                                 alt="NovaMeD-BD Logo" 
@@ -42,24 +70,23 @@ const Navbar = () => {
                                 priority
                             />
                         </div>
-                        {/* লোগোর পাশের ব্র্যান্ড নেম */}
-                        <span className="text-xl font-extrabold bg-gradient-to-r from-teal-700 to-emerald-600 bg-clip-text text-transparent tracking-tight">
-                            NovaMeD<span className="text-teal-500">-</span>BD
+                        <span className="text-xl font-black bg-gradient-to-r from-teal-800 via-teal-600 to-emerald-600 bg-clip-text text-transparent tracking-tight">
+                            NovaMeD<span className="text-emerald-500">.</span>BD
                         </span>
                     </Link>
 
-                    {/* Desktop Navigation Links */}
-                    <div className="hidden md:flex items-center space-x-1 font-semibold">
+                    {/* Navigation Links (Desktop) */}
+                    <div className="hidden md:flex items-center space-x-1 font-medium">
                         {navLinks.map((link) => {
                             const isActive = pathname === link.href;
                             return (
                                 <Link 
                                     key={link.href}
                                     href={link.href} 
-                                    className={`px-5 py-2.5 rounded-xl transition-all duration-300 text-sm tracking-wide ${
+                                    className={`px-4 py-2 rounded-xl text-sm font-semibold tracking-wide transition-all duration-300 ${
                                         isActive 
-                                            ? "bg-teal-600 text-white shadow-md shadow-teal-600/20" 
-                                            : "text-slate-600 hover:bg-teal-600/10 hover:text-teal-700"
+                                            ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md shadow-teal-600/20 scale-[1.02]" 
+                                            : "text-slate-600 hover:bg-teal-50 hover:text-teal-600"
                                     }`}
                                 >
                                     {link.name}
@@ -68,45 +95,62 @@ const Navbar = () => {
                         })}
                     </div>
 
-                    {/* Desktop Auth Buttons */}
+                    {/* Auth Buttons / Dynamic User Profile (Desktop) */}
                     <div className="hidden md:flex items-center space-x-4">
                         {user ? (
-                            <div className="flex items-center space-x-4 bg-teal-900/5 pl-3 pr-2 py-1.5 rounded-2xl border border-teal-900/5">
-                                <span className="text-sm font-semibold text-teal-900">{user.name}</span>
-                                <Image
-                                    src={user.profilePic} 
-                                    alt={user.name} 
-                                    width={38}
-                                    height={38}
-                                    className="w-9 h-9 rounded-xl border-2 border-teal-500 object-cover shadow-sm"
-                                />
+                            <div className="flex items-center space-x-4 relative" ref={dropdownRef}>
+                                {/* Profile Image Button */}
                                 <button 
-                                    onClick={handleLogout}
-                                    className="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-xl font-bold transition-all duration-200 text-xs tracking-wider uppercase shadow-sm"
+                                    onClick={() => setIsProfileOpen(!isProfileOpen)}
+                                    className="focus:outline-none relative transition-transform active:scale-95 cursor-pointer"
+                                    title="View Profile Details"
                                 >
-                                    Logout
+                                    <Image
+                                        src={user.image || "/fallback-avatar.png"} 
+                                        alt={user.name || "User Profile"} 
+                                        width={42}
+                                        height={42}
+                                        className="w-10 h-10 rounded-xl border-2 border-teal-500 object-cover shadow-sm ring-4 ring-teal-50 hover:border-emerald-500 transition-all"
+                                    />
+                                </button>
+
+                                {/* Profile Details Dropdown Card */}
+                                {isProfileOpen && (
+                                    <div className="absolute right-28 top-12 w-64 bg-white border border-teal-100 rounded-2xl shadow-xl p-4 transition-all duration-200 animate-in fade-in slide-in-from-top-2 z-50">
+                                        <div className="space-y-1">
+                                            <p className="text-xs font-bold text-teal-600 tracking-wider uppercase">Logged in as</p>
+                                            <p className="text-sm font-black text-slate-800 truncate">{user.name}</p>
+                                            <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Signout Button */}
+                                <button 
+                                    onClick={handleSignOut}
+                                    className="bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white px-4 py-2 rounded-xl font-bold transition-all duration-300 text-xs tracking-wider uppercase shadow-md shadow-rose-500/15 hover:shadow-rose-600/20 active:scale-95 cursor-pointer"
+                                >
+                                    Signout
                                 </button>
                             </div>
                         ) : (
                             <div className="flex items-center space-x-3">
                                 <Link 
                                     href="/login"
-                                    className={`px-5 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm ${
+                                    className={`px-5 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm border cursor-pointer ${
                                         pathname === '/login'
-                                            ? "bg-teal-600 text-white shadow-md shadow-teal-600/20"
-                                            : "text-teal-700 hover:bg-teal-600/10 hover:text-teal-800"
+                                            ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white border-transparent shadow-lg shadow-teal-600/20 scale-[1.02]"
+                                            : "text-teal-700 bg-teal-50/60 border-teal-100 hover:bg-teal-600 hover:text-white hover:border-transparent hover:shadow-md hover:shadow-teal-600/10"
                                     }`}
                                 >
                                     Login
                                 </Link>
                                 <Link 
                                     href="/register"
-                                    className={`px-5 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm shadow-md ${
+                                    className={`px-5 py-2.5 rounded-xl font-bold transition-all duration-300 text-sm border cursor-pointer shadow-sm ${
                                         pathname === '/register'
-                                            ? "bg-teal-700 text-white shadow-teal-700/20"
-                                            : pathname === '/login'
-                                                ? "text-teal-700 hover:bg-teal-600/10 hover:text-teal-800"
-                                                : "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-teal-600/20"
+                                            ? "bg-gradient-to-r from-teal-700 to-emerald-700 text-white border-transparent shadow-lg shadow-teal-700/20 scale-[1.02]"
+                                            : "bg-gradient-to-r from-teal-600 to-emerald-600 text-white border-transparent hover:from-teal-700 hover:to-emerald-700 hover:shadow-lg hover:shadow-teal-600/20"
                                     }`}
                                 >
                                     Register
@@ -115,12 +159,12 @@ const Navbar = () => {
                         )}
                     </div>
 
-                    {/* Mobile Menu Button */}
+                    {/* Hamburger Menu (Mobile Button) */}
                     <div className="flex md:hidden items-center">
                         <button
                             onClick={() => setIsOpen(!isOpen)}
                             type="button"
-                            className="inline-flex items-center justify-center p-2.5 rounded-xl text-teal-700 hover:text-teal-900 hover:bg-teal-100/60 focus:outline-none transition-all border border-teal-100"
+                            className="inline-flex items-center justify-center p-2.5 rounded-xl text-teal-700 hover:text-teal-900 hover:bg-teal-100/60 focus:outline-none transition-all border border-teal-100/80 shadow-sm"
                         >
                             <span className="sr-only">Open main menu</span>
                             {isOpen ? (
@@ -137,13 +181,13 @@ const Navbar = () => {
                 </div>
             </div>
 
-            {/* Mobile Menu */}
+            {/* Mobile Responsive Menu */}
             <div 
-                className={`md:hidden absolute w-full bg-white/95 backdrop-blur-md left-0 shadow-xl border-b border-teal-50 transition-all duration-300 ease-in-out ${
+                className={`md:hidden absolute w-full bg-white/98 backdrop-blur-lg left-0 shadow-2xl border-b border-teal-50/80 transition-all duration-300 ease-in-out ${
                     isOpen ? "top-20 opacity-100 visible" : "-top-96 opacity-0 invisible"
                 }`}
             >
-                <div className="px-4 pt-2 pb-6 space-y-2">
+                <div className="px-4 pt-3 pb-6 space-y-2">
                     {navLinks.map((link) => {
                         const isActive = pathname === link.href;
                         return (
@@ -151,10 +195,10 @@ const Navbar = () => {
                                 key={link.href}
                                 href={link.href}
                                 onClick={() => setIsOpen(false)}
-                                className={`block px-4 py-3 rounded-xl text-base font-bold transition-all ${
+                                className={`block px-4 py-3 rounded-xl text-base font-bold transition-all duration-200 ${
                                     isActive
-                                        ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md shadow-teal-600/10"
-                                        : "text-slate-600 hover:bg-teal-50 hover:text-teal-700"
+                                        ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md shadow-teal-600/15"
+                                        : "text-slate-600 hover:bg-teal-50 hover:text-teal-600"
                                 }`}
                             >
                                 {link.name}
@@ -162,26 +206,32 @@ const Navbar = () => {
                         );
                     })}
 
-                    <hr className="my-4 border-teal-50" />
+                    <hr className="my-4 border-teal-100/50" />
 
+                    {/* Auth Buttons / User Profile (Mobile Dynamic) */}
                     <div className="px-2">
                         {user ? (
-                            <div className="flex items-center justify-between bg-teal-50/50 p-3 rounded-xl border border-teal-100/50">
+                            <div className="flex flex-col space-y-3 bg-gradient-to-r from-teal-50 to-emerald-50 p-4 rounded-xl border border-teal-100/50 shadow-sm">
+                                {/* User Info for Mobile */}
                                 <div className="flex items-center space-x-3">
                                     <Image
-                                        src={user.profilePic}
-                                        alt={user.name}
-                                        width={40}
-                                        height={40}
-                                        className="w-10 h-10 rounded-xl border-2 border-teal-500 object-cover"
+                                        src={user.image || "/fallback-avatar.png"} 
+                                        alt={user.name || "User Profile"}
+                                        width={44}
+                                        height={44}
+                                        className="w-11 h-11 rounded-xl border-2 border-teal-500 object-cover"
                                     />
-                                    <span className="text-teal-900 font-bold text-sm">{user.name}</span>
+                                    <div className="flex flex-col min-w-0">
+                                        <span className="text-slate-800 font-black text-sm truncate">{user.name}</span>
+                                        <span className="text-slate-500 text-xs truncate">{user.email}</span>
+                                    </div>
                                 </div>
+                                
                                 <button
-                                    onClick={handleLogout}
-                                    className="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-xl font-bold transition-colors text-xs uppercase tracking-wider"
+                                    onClick={handleSignOut}
+                                    className="w-full bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white py-2.5 rounded-xl font-bold transition-all text-xs uppercase tracking-wider shadow-sm cursor-pointer text-center"
                                 >
-                                    Logout
+                                    Signout
                                 </button>
                             </div>
                         ) : (
@@ -189,10 +239,10 @@ const Navbar = () => {
                                 <Link 
                                     href="/login"
                                     onClick={() => setIsOpen(false)}
-                                    className={`w-full text-center font-bold py-3 rounded-xl transition-all text-sm ${
+                                    className={`w-full text-center font-bold py-3 rounded-xl transition-all text-sm border cursor-pointer ${
                                         pathname === '/login'
-                                            ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md"
-                                            : "text-teal-700 hover:bg-teal-50 border border-teal-200/60"
+                                            ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white border-transparent shadow-md"
+                                            : "text-teal-700 bg-teal-50/60 border-teal-100 hover:bg-teal-600 hover:text-white hover:border-transparent"
                                     }`}
                                 >
                                     Login
@@ -200,12 +250,10 @@ const Navbar = () => {
                                 <Link 
                                     href="/register"
                                     onClick={() => setIsOpen(false)}
-                                    className={`w-full text-center font-bold py-3 rounded-xl transition-all text-sm shadow-md ${
+                                    className={`w-full text-center font-bold py-3 rounded-xl transition-all text-sm border cursor-pointer shadow-sm ${
                                         pathname === '/register'
-                                            ? "bg-teal-700 text-white"
-                                            : pathname === '/login'
-                                                ? "text-teal-700 hover:bg-teal-50 border border-teal-200/60"
-                                                : "bg-gradient-to-r from-teal-600 to-emerald-600 text-white"
+                                            ? "bg-gradient-to-r from-teal-700 to-emerald-700 text-white border-transparent shadow-md"
+                                            : "bg-gradient-to-r from-teal-600 to-emerald-600 text-white border-transparent hover:from-teal-700 hover:to-emerald-700"
                                     }`}
                                 >
                                     Register
